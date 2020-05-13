@@ -1,0 +1,270 @@
+{ 
+  TFile * f = TFile::Open("treesTTJets_1.root");
+  f->cd("DMTreesDumper;1");
+  //cout << ttDM__noSyst->GetEntries();
+  
+  TTree * t= new TTree();
+  t = (TTree*)(f->Get("DMTreesDumper/ttDM__noSyst")->Clone());
+  cout << " tree is "<< t->GetName()<< " entries "<< t->GetEntries()<<endl;
+  
+
+int  muons=0;
+const int a=5;
+const int b=20;
+Float_t fmuonstight_Pt[a];
+Float_t fmuonstight_eta[a];
+Float_t fmuonstight_phi[a];
+Float_t fmuonstight_E[a];
+Float_t fmuonstight_Charge[a];
+Float_t fjetspt[a];
+Float_t fdeepCSVM[b];
+Float_t fmetFull_Pt=0;
+Int_t fjets_size=-1;
+Int_t fmuonstight_size=-1;
+Int_t okcouples=0;
+Int_t notokcouples=0;
+Int_t n_step_muon=0;
+Int_t n_step_1=0;
+Int_t N_cuttedevent=0;
+Int_t fmetFull_size=-1;
+
+
+for (int i=0; i<a; i++ ){
+fmuonstight_eta[i]=0;
+fmuonstight_E[i]=0;
+fmuonstight_phi[i]=0;
+fmuonstight_Pt[i]=0;
+fmuonstight_Charge[i]=0;
+}
+
+for (int s=0; s<b; s++){
+fjetspt[s]=0;
+fdeepCSVM[s]=0;
+//fmetFull_Pt[s]=0;
+}
+
+  t->SetBranchAddress("muonsTight_size", &fmuonstight_size);
+  t->SetBranchAddress("muonsTight_Pt", fmuonstight_Pt);
+  t->SetBranchAddress("muonsTight_Phi", fmuonstight_phi);
+  t->SetBranchAddress("muonsTight_Eta", fmuonstight_eta);
+  t->SetBranchAddress("muonsTight_E", fmuonstight_E);
+  t->SetBranchAddress("muonsTight_Charge" , fmuonstight_Charge);
+  t->SetBranchAddress("metFull_size" , &fmetFull_size);
+  t->SetBranchAddress("jetsAK4CHSTight_size", &fjets_size);
+  t->SetBranchAddress("jetsAK4CHSTight_IsDeepCSVM" , fdeepCSVM);
+  t->SetBranchAddress("jetsAK4CHSTight_Pt" , fjetspt);
+  t->SetBranchAddress("metFull_Pt", &fmetFull_Pt);
+ 
+  TH1F* histo_cutflow=new TH1F("cutflow","cutflow", 4 ,-2.5,3.5 );
+  TH1F* h_Z_M=new TH1F("z0_M","z0_M",200,75,105);
+  TH1F* h_Muons_M=new TH1F("MuonsTight_M","MuonsTight_M",200,0.006,0.0165);
+  TH1F* h_Pt=new TH1F("MUONS PT", "Muons Pt", 200, 0, 1000 );
+  TH1F* h_E=new TH1F("Muons_E", "Muons_E", 200, 0, 600);
+  TH1F* h_phi=new TH1F("Muons_Phi","Muons_Phi", 100, -3.14, 3.14);
+  TH1F* h_eta=new TH1F("Muons_Eta", "Muons_Eta", 100, -2.4, 2.4);
+  TH2F* h_ML=new TH2F("prova" ,"prova", 200, 75, 105, 100, 0, 750); 
+  TH1F* h_nZ0=new TH1F("Numero Z0", "n_Z0", 3 , 0.5, 1.5);
+  TH1F* h_metFullPt=new TH1F(" Pt MetFull", "MetFull Pt", 100, 0, 1500);
+  TH1F* h_btagged=new TH1F("Jets B tagged", "Jets B_tagged", 20, 0, 10);
+  TH1F* h_fjetsPt=new TH1F("Pt Jets", "jets_pt", 100, 0, 1500);
+  TH1F* h_Z_MBest=new TH1F("Z_M Best", "Z_M best", 100 , 75, 105);
+  TCanvas C2("c2");
+
+
+
+  size_t n_step_0=t-> GetEntries();
+  size_t nloop=t->GetEntries();
+
+  //CICLO SUGLI EVENTI
+
+  for (size_t i = 0;i<nloop;++i ){
+  Int_t k=0;  
+  t->GetEntry(i);// prende evento i
+  if ( i % int(nloop*0.1) == 0) cout <<i<<"/"<<nloop<<" analyzed"<<endl;
+  if(fmuonstight_size<2) {
+     N_cuttedevent++;
+    continue;
+  } 
+
+  n_step_1++;
+//  cout<<" numero muoni "<< fmuonstight_size << endl;
+  
+  TLorentzVector muons[fmuonstight_size];
+  Double_t muons_M[fmuonstight_size];
+  Double_t Z_M;
+  Bool_t GoodMuon[a];
+  Bool_t Z_Good[a];
+  Bool_t passes_muon_step;
+  Int_t n_goodmuons=0;
+  Int_t n_Z0=0;
+  Int_t okpt=0;
+  Bool_t passes_btag;
+  Int_t Z0=92;
+  Int_t DeltaZ0M=999999;
+  double DeltaZM;
+  int bestindex1=0;
+  int bestindex2=0;
+  Double_t Z_MBest;
+
+
+//CICLO SUI MUONI TIGHT
+  for(int j=0; j<fmuonstight_size; j++ ){
+    muons[j].SetPtEtaPhiE(fmuonstight_Pt[j], fmuonstight_eta[j], fmuonstight_phi[j], fmuonstight_E[j]);
+    muons_M[j]= muons[j].Mag2();
+    GoodMuon[j]=true;
+    //if(muons_M[j]<0.004512 || muons_M[j]>0.016480) GoodMuon[j]=false;
+    if(muons_M[j]<0.00 || muons_M[j]>2000) GoodMuon[j]=false;
+    if(GoodMuon[j]==true){ h_Muons_M->Fill(muons_M[j]);
+      n_goodmuons++;
+      h_Pt-> Fill(fmuonstight_Pt[j]);
+      h_E-> Fill(fmuonstight_E[j]);
+      h_eta->Fill(fmuonstight_eta[j]);
+      h_phi-> Fill(fmuonstight_phi[j]);   
+      //for(int h=0; h<j; h++){                                                                        
+      for(int k=0; k<j; k++){ 
+        if(fmuonstight_Charge[j]==fmuonstight_Charge[k]) {
+          notokcouples++;
+          N_cuttedevent++;
+          continue;
+        }
+        else okcouples++;
+        //if(muons_M[k]<0.004512 || muons_M[k]>0.016480) {
+           if(muons_M[k]<0.0 || muons_M[k]>2222222222) {
+          N_cuttedevent++;
+          continue;         
+        }                         
+        Z_M=(muons[j]+muons[k]).M();
+        //quadrivettore z, oppure mi salvo gli indici dei muoni che appartengono alle Z e risalgo ai quadrimomenti 
+        Z_Good[k]=true;
+         //if(Z_M < 82.4 || Z_M > 98.0) Z_Good[k]=false;
+         if(Z_M < 0 || Z_M > 150.0) Z_Good[k]=false;
+        if(Z_Good[k]==true) {
+          DeltaZM=TMath::Abs(Z0-Z_M);
+          if(DeltaZM<DeltaZ0M){
+              DeltaZ0M=DeltaZM;
+              bestindex1=j;
+              bestindex2=k;
+              Z_MBest=Z_M;
+          }
+
+          h_Z_MBest->Fill(Z_MBest);
+          h_Z_M->Fill(Z_M); 
+          n_Z0++;
+          }
+
+          h_nZ0->Fill(n_Z0);
+          passes_muon_step=true;
+         
+      if(fmuonstight_Pt[j]<fmuonstight_Pt[k])  h_ML->Fill(Z_M, fmuonstight_Pt[j]);
+      else h_ML->Fill(Z_M, fmuonstight_Pt[k]);
+                              }   
+    }                                
+  // cout << "n muons good " << n_goodmuons <<"  e n Z0 " << n_Z0 << " nell'evento "<< i << endl;
+  }
+  if(passes_muon_step) n_step_muon++;
+  
+  if(!passes_muon_step && fmuonstight_size<3) continue;
+  
+  //loop b
+   if(fjets_size>=1){
+            for(k=0; k<fjets_size; k++){
+              if(fjetspt[k]>=30 && fdeepCSVM[k]){
+                //loop sulle z e mi faccio stampare i phi e eta
+                cout<< "numero evento " << i << endl;
+                okpt++;
+                cout << "pt jet " << fjetspt[k] << endl; //selezionare jet con pt più elevato
+                cout <<" is b tagged " << fdeepCSVM[k] << endl; 
+                passes_btag=true;
+                h_fjetsPt->Fill(fjetspt[k]);
+                h_btagged->Fill(okpt);
+                h_metFullPt->Fill(fmetFull_Pt); 
+                  }
+                
+              }
+          }
+      
+
+
+  cout<< "quanti pt buoni ho " << okpt << endl;
+
+  }
+                
+
+//disegnare n bjets=okpt, pt jetspt[k],
+ 
+
+
+  //fare il disegno di quante z0 ho per evento
+  //individuare gli eventi con 3 muoni (tra quelli visti), hanno Met ed un JetB, misurare la componente transversa del momento del top, selezionare eventi con un leptone extra e un ket b tgged loopo sui jet e richiedo che sia CSVM con un pt>30;
+  //salvarmi l'indice degli eventi che passano la selezione
+  //ricostruisco il pt T' 
+
+
+cout << "not good couple "<< notokcouples << endl;  
+cout << "good couple " << okcouples << endl;
+cout << "n_step_0 " << n_step_0 << endl;
+cout << "n_step_1" << n_step_1 << endl;
+cout << "n_step_muon" << n_step_muon << endl;
+cout << "numero eventi tagliati " << N_cuttedevent << endl;
+
+histo_cutflow->SetBinContent(1,n_step_0);
+histo_cutflow->SetBinContent(2,n_step_1);
+histo_cutflow->SetBinContent(3,n_step_muon);
+
+
+
+
+h_btagged->Draw();
+C2.SaveAs("btagged.root");
+C2.SaveAs("btagged.pdf");
+
+h_fjetsPt->Draw();
+C2.SaveAs("Jets_Pt.root");
+C2.SaveAs("Jets_Pt.pdf");
+
+h_metFullPt->Draw();
+C2.SaveAs("metFull_Pt.root");
+C2.SaveAs("metFull_Pt.pdf");
+
+h_Muons_M->Draw();
+C2.SaveAs("M_Muons.pdf");
+C2.SaveAs("M_Muons.root");
+  
+h_E->Draw();
+C2.SaveAs("mtE.pdf");
+C2.SaveAs("mtE.root");
+
+h_eta->Draw();
+C2.SaveAs("mteta.pdf");
+C2.SaveAs("mteta.root");
+
+h_phi->Draw();
+C2.SaveAs("mtphi.pdf");
+C2.SaveAs("mtphi.root");
+
+h_Pt->Draw();
+C2.SaveAs("mtpt.pdf");
+C2.SaveAs("mtpt.root");
+
+h_Z_M->Draw();
+C2.SaveAs("mz.root");
+C2.SaveAs("mz.pdf");
+
+h_ML->Draw("colz");
+C2.SaveAs("h_ML.root");
+C2.SaveAs("h_ML.pdf");
+
+
+histo_cutflow->Draw();
+C2.SaveAs("cutflow.root");
+C2.SaveAs("cutflow.pdf");
+
+h_nZ0->Draw();
+C2.SaveAs("nZ0.root");
+C2.SaveAs("nZ0.pdf");
+
+h_Z_MBest->Draw();
+C2.SaveAs("mzbest.root");
+C2.SaveAs("mzbest.pdf");
+
+  }
